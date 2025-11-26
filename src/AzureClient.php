@@ -11,7 +11,7 @@ class AzureClient {
     private string $clientSecret;
     private ?array $tokenCache = null;
     private string $baseUrl = 'https://management.azure.com';
-    private string $apiVersion = '2025-04-01'; // choose appropriate API version
+    private string $apiVersion = '2023-09-01'; // Stable API version supported across Azure resources
 
     public function __construct(string $tenantId, string $clientId, string $clientSecret, array $guzzleOpts = []) {
         if (trim($tenantId) === '') {

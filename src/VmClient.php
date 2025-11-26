@@ -60,6 +60,19 @@ class VmClient {
     }
 
     /**
+     * Get available VM image publishers for a specific location
+     * 
+     * @param string $subscriptionId Azure subscription ID
+     * @param string $location Azure region (e.g., 'eastus', 'westus')
+     * @return array List of available publishers
+     */
+    public function getAvailablePublishers(string $subscriptionId, string $location): array {
+        $path = "/subscriptions/{$subscriptionId}/providers/Microsoft.Compute/locations/{$location}/publishers";
+        $response = $this->client->request('GET', $path, []);
+        return $this->extractList($response);
+    }
+
+    /**
      * Get available OS types (VM images) for a specific location
      * 
      * @param string $subscriptionId Azure subscription ID

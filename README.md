@@ -8,6 +8,7 @@ A PHP SDK for managing Azure Virtual Machines with a simple and intuitive API.
 - ✅ Start, stop, restart, and deallocate VMs
 - ✅ Get VM instance view and power state
 - ✅ List available VM sizes by region
+- ✅ Check VM quotas (CPUs, VMs, disks, etc.)
 - ✅ Automatic network interface and public IP creation
 - ✅ Support for Windows Server VMs
 - ✅ OAuth2 authentication with token caching
@@ -113,7 +114,31 @@ Creates a VM with advanced configuration options.
 - Resource tagging
 - Windows Server 2022 Datacenter
 
-### 5. Manage VM
+### 5. Check Quota
+```bash
+php examples/check_quota.php
+```
+Checks VM quota and usage for a specific region.
+
+**Features:**
+- Displays quota summary for all compute resources
+- Shows current usage vs. limits
+- Checks availability for specific core requirements
+- Warns when quota usage is high (>80%)
+
+### 6. Create VM with Quota Check
+```bash
+php examples/create_vm_with_quota_check.php
+```
+Creates a VM with pre-creation quota validation.
+
+**Features:**
+- Validates quota before VM creation
+- Shows visual quota usage bars
+- Prevents creation if insufficient quota
+- Displays before/after quota status
+
+### 7. Manage VM
 ```bash
 php examples/manage_vm.php
 ```
@@ -266,6 +291,84 @@ public function getAvailableVMSizes(
 ): array
 ```
 
+#### `getComputeUsages()`
+Get compute resource usage and quota information for a specific location.
+
+```php
+public function getComputeUsages(
+    string $subscriptionId,
+    string $location
+): array
+```
+
+**Returns:** Array of usage information including:
+- vCPUs (total and per VM family)
+- Virtual machines count
+- Disks
+- Public IP addresses
+- Network interfaces
+
+#### `checkAvailableQuota()`
+Check if there is available quota for creating VMs with specific requirements.
+
+```php
+public function checkAvailableQuota(
+    string $subscriptionId,
+    string $location,
+    int $requiredCores = 1
+): array
+```
+
+**Parameters:**
+- `$subscriptionId` - Azure subscription ID
+- `$location` - Azure region
+- `$requiredCores` - Number of CPU cores needed
+
+**Returns:** Array with:
+- `hasAvailableQuota` - Boolean indicating if quota is available
+- `quotas` - Detailed quota information for all resources
+- `warnings` - Array of warning messages
+
+#### `getQuotaSummary()`
+Get a formatted summary of quota usage.
+
+```php
+public function getQuotaSummary(
+    string $subscriptionId,
+    string $location
+): array
+```
+
+**Returns:** Formatted summary including:
+- Total number of resources
+- Usage statistics for each resource
+- Available quota
+- Percentage used
+
+#### `getQuotaByResource()`
+Get quota information for a specific resource using the Azure Quota API.
+
+```php
+public function getQuotaByResource(
+    string $subscriptionId,
+    string $location,
+    string $resourceName
+): array
+```
+
+**Parameters:**
+- `$resourceName` - Resource name (e.g., 'standardNDSFamily', 'virtualMachines')
+
+#### `getAllQuotas()`
+Get all quotas for compute resources in a specific location.
+
+```php
+public function getAllQuotas(
+    string $subscriptionId,
+    string $location
+): array
+```
+
 ## VM Sizes
 
 The SDK automatically selects an appropriate VM size based on your CPU and RAM requirements. Common sizes include:
@@ -311,6 +414,13 @@ try {
    - Avoid creating public IPs unless necessary
    - Use Network Security Groups to restrict access
    - Rotate credentials regularly
+
+5. **Quota Management**:
+   - Always check quota availability before creating VMs
+   - Monitor quota usage regularly to avoid hitting limits
+   - Request quota increases proactively for planned deployments
+   - Use `checkAvailableQuota()` in automated deployment scripts
+   - Set up alerts when quota usage exceeds 80%
 
 ## License
 

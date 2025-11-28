@@ -24,21 +24,21 @@ $adminPassword = 'P@ssw0rd123!'; // Must meet Azure password requirements
 // Network Configuration
 // You need to provide an existing subnet ID
 // Format: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}
-$subnetId = "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/virtualNetworks/my-vnet/subnets/default";
+$subnetId = "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/virtualNetworks/vnet-eastus/subnets/snet-eastus-1";
 
 // VM Specifications
-$ramGB = 4;          // RAM in GB
-$cpuCores = 2;       // Number of CPU cores
+$vmSize = 'Standard_DC16ads_cc_v5';
 $diskSizeGB = 128;   // OS disk size in GB
 
 // Optional: Create a public IP for RDP access
 $dedicatedAdminRdp = false; // Set to true to create a public IP for remote access
 
 // Operating System
+// Using Gen2 image for DC-series VMs which require Hypervisor Generation 2
 $os = [
     'publisher' => 'MicrosoftWindowsServer',
     'offer' => 'WindowsServer',
-    'sku' => '2019-Datacenter',
+    'sku' => '2019-datacenter-gensecond',
     'version' => 'latest'
 ];
 
@@ -49,7 +49,7 @@ try {
 
     echo "Creating VM: {$vmName}\n";
     echo "Location: {$location}\n";
-    echo "Specifications: {$cpuCores} cores, {$ramGB}GB RAM, {$diskSizeGB}GB disk\n";
+    echo "Specifications: {$vmSize}, {$diskSizeGB}GB disk\n";
     echo "Public IP: " . ($dedicatedAdminRdp ? 'Yes' : 'No') . "\n";
     echo "\nThis may take several minutes...\n\n";
 
@@ -60,13 +60,12 @@ try {
         location: $location,
         vmName: $vmName,
         subnetId: $subnetId,
-        ramGB: $ramGB,
-        cpuCores: $cpuCores,
+        vmSize: $vmSize,
         diskSizeGB: $diskSizeGB,
         adminUsername: $adminUsername,
         adminPassword: $adminPassword,
         dedicatedAdminRdp: $dedicatedAdminRdp,
-        os: $os
+        imageReference: $os
     );
 
     echo "VM Creation Response:\n";

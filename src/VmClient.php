@@ -3,8 +3,11 @@ namespace AzureVmSdk;
 
 class VmClient {
     private AzureClient $client;
+    private NetworkInterfaceClient $networkInterfaceClient;
+
     public function __construct(AzureClient $client) {
         $this->client = $client;
+        $this->networkInterfaceClient = new NetworkInterfaceClient($client);
     }
 
     public function listVms(string $subscriptionId, string $resourceGroup): array {
@@ -142,14 +145,15 @@ class VmClient {
         return [];
     }
 
+
+
     public function createVM(
         string $subscriptionId,
         string $resourceGroup,
         string $location,
         string $vmName,
         string $subnetId,
-        int $ramGB,
-        int $cpuCores,
+        string $vmSize,
         int $diskSizeGB,
         string $adminUsername,
         string $adminPassword,
@@ -161,82 +165,44 @@ class VmClient {
         ],
         bool $dedicatedAdminRdp = false,
     ): array {
-        // 1. Select VM Size
-        $vmSizes = $this->getAvailableVMSizes($subscriptionId, $location);
-        $selectedSize = null;
-        
-        // Simple selection logic: find first size that meets requirements
-        // Note: Azure VM sizes are strings like 'Standard_D2s_v3'. 
-        // We need to parse or rely on a mapping if we want to be precise.
-        // However, the API response for vmSizes includes numberOfCores and memoryInMB.
-        
-        foreach ($vmSizes as $size) {
-            $memoryGB = ($size['memoryInMB'] ?? 0) / 1024;
-            $cores = $size['numberOfCores'] ?? 0;
-            
-            if ($cores >= $cpuCores && $memoryGB >= $ramGB) {
-                $selectedSize = $size['name'];
-                break;
-            }
-        }
-
-        if (!$selectedSize) {
-            throw new \RuntimeException("No suitable VM size found for {$cpuCores} cores and {$ramGB}GB RAM in {$location}");
-        }
-
-        // 2. Prepare Network Interface
-        // We need to create a NIC. For simplicity, we'll name it {$vmName}-nic
+        // Prepare Network Interface name and ID
         $nicName = "{$vmName}-nic";
         $nicId = "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/networkInterfaces/{$nicName}";
         
-        // We need to create the NIC first.
-        $nicPayload = [
-            'location' => $location,
-            'properties' => [
-                'ipConfigurations' => [
-                    [
-                        'name' => 'ipconfig1',
-                        'properties' => [
-                            'subnet' => [
-                                'id' => $subnetId
-                            ],
-                            'privateIPAllocationMethod' => 'Dynamic'
-                        ]
-                    ]
-                ]
-            ]
-        ];
-
+        $publicIpId = null;
+        
+        // Create Public IP if dedicated admin RDP is requested
         if ($dedicatedAdminRdp) {
-            // Create Public IP
             $publicIpName = "{$vmName}-pip";
+            $domainNameLabel = strtolower($vmName . '-' . substr(md5(uniqid()), 0, 6)); // Ensure uniqueness
+            
+            $this->networkInterfaceClient->createPublicIp(
+                $subscriptionId,
+                $resourceGroup,
+                $location,
+                $publicIpName,
+                $domainNameLabel
+            );
+            
             $publicIpId = "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/publicIPAddresses/{$publicIpName}";
-            
-            $publicIpPayload = [
-                'location' => $location,
-                'properties' => [
-                    'publicIPAllocationMethod' => 'Dynamic',
-                    'dnsSettings' => [
-                        'domainNameLabel' => strtolower($vmName . '-' . substr(md5(uniqid()), 0, 6)) // Ensure uniqueness
-                    ]
-                ]
-            ];
-            
-            $this->client->request('PUT', $publicIpId, [], $publicIpPayload);
-
-            // Attach Public IP to NIC
-            $nicPayload['properties']['ipConfigurations'][0]['properties']['publicIPAddress'] = [
-                'id' => $publicIpId
-            ];
         }
 
-        $this->client->request('PUT', $nicId, [], $nicPayload);
+        // Create Network Interface
+        $this->networkInterfaceClient->createNetworkInterface(
+            $subscriptionId,
+            $resourceGroup,
+            $location,
+            $nicName,
+            $subnetId,
+            $publicIpId
+        );
 
+        // Prepare VM payload
         $vmPayload = [
             'location' => $location,
             'properties' => [
                 'hardwareProfile' => [
-                    'vmSize' => $selectedSize
+                    'vmSize' => $vmSize
                 ],
                 'storageProfile' => [
                     'imageReference' => $imageReference,
@@ -268,7 +234,24 @@ class VmClient {
             ]
         ];
 
-        // 4. Create VM
+        // Create VM
         return $this->createOrUpdateVm($subscriptionId, $resourceGroup, $vmName, $vmPayload);
+    }
+
+    public function getQuotaByResource(string $subscriptionId, string $location, string $resourceName): array {
+        $path = "/subscriptions/{$subscriptionId}/providers/Microsoft.Compute/locations/{$location}/providers/Microsoft.Quota/quotas/{$resourceName}";
+        return $this->client->request('GET', $path, []);
+    }
+
+    public function getComputeUsages(string $subscriptionId, string $location): array {
+        $path = "/subscriptions/{$subscriptionId}/providers/Microsoft.Compute/locations/{$location}/usages";
+        $response = $this->client->request('GET', $path, []);
+        return $response['value'] ?? [];
+    }
+
+    public function getAllQuotas(string $subscriptionId, string $location): array {
+        $path = "/subscriptions/{$subscriptionId}/providers/Microsoft.Compute/locations/{$location}/providers/Microsoft.Quota/quotas";
+        $response = $this->client->request('GET', $path, []);
+        return $response['value'] ?? [];
     }
 }

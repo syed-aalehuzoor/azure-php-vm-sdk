@@ -91,4 +91,38 @@ class NetworkInterfaceClient {
             "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/networkInterfaces/{$nicName}"
         );
     }
+
+    /**
+     * List Public IP Addresses
+     * 
+     * @param string $subscriptionId Azure subscription ID
+     * @param string $resourceGroup Resource group name
+     * @return array List of Public IP resources
+     */
+    public function listPublicIps(
+        string $subscriptionId,
+        string $resourceGroup
+    ): array {
+        return $this->client->request(
+            'GET',
+            "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/publicIPAddresses"
+        );
+    }
+
+    /**
+     * List Network Interfaces
+     * 
+     * @param string $subscriptionId Azure subscription ID
+     * @param string $resourceGroup Resource group name
+     * @return array List of Network Interface resources
+     */
+    public function listNetworkInterfaces(
+        string $subscriptionId,
+        string $resourceGroup
+    ): array {
+        return $this->client->request(
+            'GET',
+            "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/networkInterfaces"
+        );
+    }
 }

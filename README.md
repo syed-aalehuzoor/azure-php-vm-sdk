@@ -1,39 +1,33 @@
 # Azure PHP VM SDK
 
-A PHP SDK for managing Azure Virtual Machines with a simple and intuitive API.
+A minimal PHP SDK for managing Azure Virtual Machines using the Azure ARM REST API. This library provides a fluent, builder-based interface for creating and managing VMs, Network Interfaces, and Public IPs.
 
 ## Features
 
-- ✅ Create, read, update, and delete Azure VMs
-- ✅ Start, stop, restart, and deallocate VMs
-- ✅ Get VM instance view and power state
-- ✅ List available VM sizes by region
-- ✅ Check VM quotas (CPUs, VMs, disks, etc.)
-- ✅ Automatic network interface and public IP creation
-- ✅ Support for Windows Server VMs
-- ✅ OAuth2 authentication with token caching
+- **Authentication**: Easy integration with Azure Active Directory via Client Credentials flow.
+- **VM Management**: Create, start, stop, delete, and list Virtual Machines.
+- **Network Management**: Create and manage Network Interfaces and Public IPs.
+- **Builder Pattern**: Fluent builders for constructing complex resource configurations (VMs, NICs, Public IPs).
+- **Helper Utilities**: Fetch available OS images, VM sizes, and publishers.
+
+## Requirements
+
+- PHP ^8.1
+- Guzzle HTTP Client ^7.0
 
 ## Installation
 
+Install the package via Composer:
+
 ```bash
-composer require your-vendor/azure-php-vm-sdk
+composer require digiscalers/azure-vm-sdk
 ```
-
-## Prerequisites
-
-Before using this SDK, you need:
-
-1. **Azure Subscription** - An active Azure subscription
-2. **Service Principal** - Create a service principal with appropriate permissions:
-   ```bash
-   az ad sp create-for-rbac --name "my-app" --role Contributor --scopes /subscriptions/{subscription-id}
-   ```
-3. **Resource Group** - An existing resource group
-4. **Virtual Network & Subnet** - An existing VNet and subnet for VM networking
 
 ## Configuration
 
-Create a `.env` file in your project root:
+You need an Azure Service Principal with appropriate permissions (e.g., Contributor) on your Subscription or Resource Group.
+
+Create a `.env` file in your project root (or configure your environment variables accordingly):
 
 ```env
 AZURE_TENANT_ID=your-tenant-id
@@ -41,395 +35,128 @@ AZURE_CLIENT_ID=your-client-id
 AZURE_CLIENT_SECRET=your-client-secret
 AZURE_SUBSCRIPTION_ID=your-subscription-id
 AZURE_RESOURCE_GROUP=your-resource-group
+AZURE_REGION=eastus
 ```
 
-## Quick Start
+## Usage
 
-### Basic VM Creation
+### 1. Initialize the Client
 
 ```php
-<?php
-require 'vendor/autoload.php';
 use AzureVmSdk\AzureClient;
 use AzureVmSdk\VmClient;
+use AzureVmSdk\NetworkInterfaceClient;
 
-// Initialize client
-$azure = new AzureClient($tenantId, $clientId, $clientSecret);
+$azure = new AzureClient(
+    getenv('AZURE_TENANT_ID'),
+    getenv('AZURE_CLIENT_ID'),
+    getenv('AZURE_CLIENT_SECRET')
+);
+
 $vmClient = new VmClient($azure);
+$nicClient = new NetworkInterfaceClient($azure);
+```
 
-// Create a VM
-$result = $vmClient->createVM(
-    subscriptionId: $subscriptionId,
-    resourceGroup: $resourceGroup,
-    location: 'eastus',
-    vmName: 'my-vm',
-    subnetId: '/subscriptions/.../subnets/default',
-    ramGB: 4,
-    cpuCores: 2,
-    diskSizeGB: 128,
-    adminUsername: 'azureuser',
-    adminPassword: 'P@ssw0rd123!',
-    dedicatedAdminRdp: true
+### 2. Create a Public IP
+
+```php
+use AzureVmSdk\PublicIpBuilder;
+
+$publicIpPayload = (new PublicIpBuilder())
+    ->setLocation('eastus')
+    ->setSku('Standard')
+    ->setAllocationMethod('Static')
+    ->setDomainNameLabel('my-unique-dns-label')
+    ->build();
+
+$nicClient->createPublicIp(
+    'subscription-id',
+    'resource-group',
+    'eastus',
+    'my-public-ip',
+    $publicIpPayload
 );
 ```
 
-## Examples
-
-The `examples/` directory contains working examples:
-
-### 1. List VMs
-```bash
-php examples/list_vms.php
-```
-Lists all VMs in the specified resource group.
-
-### 2. Get VM Details
-```bash
-php examples/get_vm.php
-```
-Retrieves detailed information about a specific VM.
-
-### 3. Create VM (Simple)
-```bash
-php examples/create_vm.php
-```
-Creates a new VM with automatic VM size selection based on CPU and RAM requirements.
-
-**Features:**
-- Automatic VM size selection
-- Automatic NIC creation
-- Optional public IP for RDP access
-- Windows Server 2019 Datacenter
-
-### 4. Create VM (Advanced)
-```bash
-php examples/create_vm_advanced.php
-```
-Creates a VM with advanced configuration options.
-
-**Features:**
-- Custom VM size specification
-- Data disk attachment
-- Boot diagnostics
-- Resource tagging
-- Windows Server 2022 Datacenter
-
-### 5. Check Quota
-```bash
-php examples/check_quota.php
-```
-Checks VM quota and usage for a specific region.
-
-**Features:**
-- Displays quota summary for all compute resources
-- Shows current usage vs. limits
-- Checks availability for specific core requirements
-- Warns when quota usage is high (>80%)
-
-### 6. Create VM with Quota Check
-```bash
-php examples/create_vm_with_quota_check.php
-```
-Creates a VM with pre-creation quota validation.
-
-**Features:**
-- Validates quota before VM creation
-- Shows visual quota usage bars
-- Prevents creation if insufficient quota
-- Displays before/after quota status
-
-### 7. Manage VM
-```bash
-php examples/manage_vm.php
-```
-Demonstrates VM lifecycle operations: start, restart, power off, deallocate, and delete.
-
-## API Reference
-
-### VmClient Methods
-
-#### `createVM()`
-High-level method to create a VM with automatic configuration.
+### 3. Create a Network Interface
 
 ```php
-public function createVM(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $location,
-    string $vmName,
-    string $subnetId,
-    int $ramGB,
-    int $cpuCores,
-    int $diskSizeGB,
-    string $adminUsername,
-    string $adminPassword,
-    bool $dedicatedAdminRdp = false,
-    string $os = 'Windows'
-): array
+use AzureVmSdk\NetworkInterfaceBuilder;
+
+$nicPayload = (new NetworkInterfaceBuilder())
+    ->setLocation('eastus')
+    ->setSubnet('/subscriptions/.../subnets/mySubnet')
+    ->setPublicIp('/subscriptions/.../publicIPAddresses/my-public-ip')
+    ->setNetworkSecurityGroup('subscription-id', 'resource-group', 'my-nsg') // Optional
+    ->build();
+
+$nicClient->createNetworkInterface(
+    'subscription-id',
+    'resource-group',
+    'my-nic',
+    $nicPayload
+);
 ```
 
-**Parameters:**
-- `$subscriptionId` - Azure subscription ID
-- `$resourceGroup` - Resource group name
-- `$location` - Azure region (e.g., 'eastus', 'westus2')
-- `$vmName` - Name for the VM
-- `$subnetId` - Full resource ID of the subnet
-- `$ramGB` - Minimum RAM in GB
-- `$cpuCores` - Minimum CPU cores
-- `$diskSizeGB` - OS disk size in GB
-- `$adminUsername` - Administrator username
-- `$adminPassword` - Administrator password
-- `$dedicatedAdminRdp` - Create public IP for RDP access (default: false)
-- `$os` - Operating system (default: 'Windows')
-
-#### `createOrUpdateVm()`
-Low-level method for creating or updating a VM with full control.
+### 4. Create a Virtual Machine
 
 ```php
-public function createOrUpdateVm(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $vmName,
-    array $vmPayload
-): array
+use AzureVmSdk\VmBuilder;
+
+$vmPayload = (new VmBuilder())
+    ->setLocation('eastus')
+    ->setVmSize('Standard_B2s')
+    ->setImageReference([
+        'publisher' => 'Canonical',
+        'offer' => 'UbuntuServer',
+        'sku' => '18.04-LTS',
+        'version' => 'latest'
+    ])
+    ->setOsDisk('my-vm-os-disk', 128, 'Standard_LRS')
+    ->setOsProfile('my-vm', 'azureuser', 'P@ssw0rd123!')
+    ->addNetworkInterface('/subscriptions/.../networkInterfaces/my-nic', true)
+    ->build();
+
+$result = $vmClient->createOrUpdateVm(
+    'subscription-id',
+    'resource-group',
+    'my-vm',
+    $vmPayload
+);
 ```
 
-#### `listVms()`
-List all VMs in a resource group.
+### 5. List Resources
 
+**List VMs:**
 ```php
-public function listVms(
-    string $subscriptionId,
-    string $resourceGroup
-): array
-```
-
-#### `getVm()`
-Get details of a specific VM.
-
-```php
-public function getVm(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $vmName
-): array
-```
-
-#### `getInstanceView()`
-Get the instance view of a VM (includes power state).
-
-```php
-public function getInstanceView(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $vmName
-): array
-```
-
-#### `startVm()`
-Start a stopped VM.
-
-```php
-public function startVm(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $vmName
-): array
-```
-
-#### `powerOffVm()`
-Power off a running VM (still incurs compute charges).
-
-```php
-public function powerOffVm(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $vmName
-): array
-```
-
-#### `restartVm()`
-Restart a VM.
-
-```php
-public function restartVm(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $vmName
-): array
-```
-
-#### `deallocateVm()`
-Deallocate a VM (stops compute charges).
-
-```php
-public function deallocateVm(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $vmName
-): array
-```
-
-#### `deleteVm()`
-Delete a VM.
-
-```php
-public function deleteVm(
-    string $subscriptionId,
-    string $resourceGroup,
-    string $vmName
-): array
-```
-
-#### `getAvailableVMSizes()`
-Get available VM sizes for a location.
-
-```php
-public function getAvailableVMSizes(
-    string $subscriptionId,
-    string $location
-): array
-```
-
-#### `getComputeUsages()`
-Get compute resource usage and quota information for a specific location.
-
-```php
-public function getComputeUsages(
-    string $subscriptionId,
-    string $location
-): array
-```
-
-**Returns:** Array of usage information including:
-- vCPUs (total and per VM family)
-- Virtual machines count
-- Disks
-- Public IP addresses
-- Network interfaces
-
-#### `checkAvailableQuota()`
-Check if there is available quota for creating VMs with specific requirements.
-
-```php
-public function checkAvailableQuota(
-    string $subscriptionId,
-    string $location,
-    int $requiredCores = 1
-): array
-```
-
-**Parameters:**
-- `$subscriptionId` - Azure subscription ID
-- `$location` - Azure region
-- `$requiredCores` - Number of CPU cores needed
-
-**Returns:** Array with:
-- `hasAvailableQuota` - Boolean indicating if quota is available
-- `quotas` - Detailed quota information for all resources
-- `warnings` - Array of warning messages
-
-#### `getQuotaSummary()`
-Get a formatted summary of quota usage.
-
-```php
-public function getQuotaSummary(
-    string $subscriptionId,
-    string $location
-): array
-```
-
-**Returns:** Formatted summary including:
-- Total number of resources
-- Usage statistics for each resource
-- Available quota
-- Percentage used
-
-#### `getQuotaByResource()`
-Get quota information for a specific resource using the Azure Quota API.
-
-```php
-public function getQuotaByResource(
-    string $subscriptionId,
-    string $location,
-    string $resourceName
-): array
-```
-
-**Parameters:**
-- `$resourceName` - Resource name (e.g., 'standardNDSFamily', 'virtualMachines')
-
-#### `getAllQuotas()`
-Get all quotas for compute resources in a specific location.
-
-```php
-public function getAllQuotas(
-    string $subscriptionId,
-    string $location
-): array
-```
-
-## VM Sizes
-
-The SDK automatically selects an appropriate VM size based on your CPU and RAM requirements. Common sizes include:
-
-| Size | vCPUs | RAM (GB) | Use Case |
-|------|-------|----------|----------|
-| Standard_B1s | 1 | 1 | Development/Testing |
-| Standard_B2s | 2 | 4 | Small workloads |
-| Standard_D2s_v3 | 2 | 8 | General purpose |
-| Standard_D4s_v3 | 4 | 16 | Medium workloads |
-| Standard_E4s_v3 | 4 | 32 | Memory-intensive |
-
-## Error Handling
-
-The SDK throws `AzureVmSdk\Exceptions\ApiException` for API errors:
-
-```php
-try {
-    $result = $vmClient->createVM(...);
-} catch (\AzureVmSdk\Exceptions\ApiException $e) {
-    echo "API Error: " . $e->getMessage();
-    echo "Status Code: " . $e->getCode();
+$vms = $vmClient->listVms('subscription-id', 'resource-group');
+foreach ($vms as $vm) {
+    echo $vm['name'] . "\n";
 }
 ```
 
-## Best Practices
+**List Network Interfaces:**
+```php
+$nics = $nicClient->listNetworkInterfaces('subscription-id', 'resource-group');
+```
 
-1. **Password Requirements**: Azure requires strong passwords:
-   - 12-123 characters
-   - Mix of uppercase, lowercase, numbers, and special characters
+**List Public IPs:**
+```php
+$ips = $nicClient->listPublicIps('subscription-id', 'resource-group');
+```
 
-2. **VM Naming**: VM names must:
-   - Be 1-15 characters for Windows
-   - Contain only alphanumeric characters and hyphens
-   - Start with a letter
+### 6. Helper Functions
 
-3. **Cost Management**:
-   - Use `deallocateVm()` instead of `powerOffVm()` to stop compute charges
-   - Choose appropriate VM sizes for your workload
-   - Use Standard_LRS for development, Premium_LRS for production
+**Get Available OS Types:**
+```php
+$osTypes = $vmClient->getAvailableOSTypes('subscription-id', 'eastus');
+```
 
-4. **Security**:
-   - Avoid creating public IPs unless necessary
-   - Use Network Security Groups to restrict access
-   - Rotate credentials regularly
-
-5. **Quota Management**:
-   - Always check quota availability before creating VMs
-   - Monitor quota usage regularly to avoid hitting limits
-   - Request quota increases proactively for planned deployments
-   - Use `checkAvailableQuota()` in automated deployment scripts
-   - Set up alerts when quota usage exceeds 80%
+**Get Available VM Sizes:**
+```php
+$sizes = $vmClient->getAvailableVmSizes('subscription-id', 'eastus');
+```
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please submit pull requests or open issues.
-
-## Support
-
-For issues and questions, please open an issue on GitHub.

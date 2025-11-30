@@ -26,20 +26,20 @@ class VmClient {
         return $this->client->request('PUT', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}", [], $vmPayload);
     }
 
-    public function deleteVm(string $subscriptionId, string $resourceGroup, string $vmName): array {
-        return $this->client->request('DELETE', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}", []);
-    }
-
     public function startVm(string $subscriptionId, string $resourceGroup, string $vmName): array {
         return $this->client->request('POST', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}/start", []);
+    }
+
+    public function restartVm(string $subscriptionId, string $resourceGroup, string $vmName): array {
+        return $this->client->request('POST', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}/restart", []);
     }
 
     public function powerOffVm(string $subscriptionId, string $resourceGroup, string $vmName): array {
         return $this->client->request('POST', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}/powerOff", []);
     }
 
-    public function restartVm(string $subscriptionId, string $resourceGroup, string $vmName): array {
-        return $this->client->request('POST', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}/restart", []);
+    public function deleteVm(string $subscriptionId, string $resourceGroup, string $vmName): array {
+        return $this->client->request('DELETE', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}", []);
     }
 
     public function deallocateVm(string $subscriptionId, string $resourceGroup, string $vmName): array {

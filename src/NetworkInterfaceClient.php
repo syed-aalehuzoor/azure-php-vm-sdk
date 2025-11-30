@@ -51,6 +51,25 @@ class NetworkInterfaceClient {
     }
 
     /**
+     * Delete a Public IP Address
+     * 
+     * @param string $subscriptionId Azure subscription ID
+     * @param string $resourceGroup Resource group name
+     * @param string $publicIpName Name for the public IP
+     * @return array|null Deletion response (may be null for successful deletions)
+     */
+    public function deletePublicIp(
+        string $subscriptionId,
+        string $resourceGroup,
+        string $publicIpName
+    ): ?array {
+        return $this->client->request(
+            'DELETE',
+            "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/publicIPAddresses/{$publicIpName}"
+        );
+    }
+
+    /**
      * Create a Network Interface
      * 
      * @param string $subscriptionId Azure subscription ID
@@ -88,6 +107,25 @@ class NetworkInterfaceClient {
     ): array {
         return $this->client->request(
             'GET',
+            "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/networkInterfaces/{$nicName}"
+        );
+    }
+
+    /**
+     * Delete a Network Interface
+     * 
+     * @param string $subscriptionId Azure subscription ID
+     * @param string $resourceGroup Resource group name
+     * @param string $nicName Name for the network interface
+     * @return array|null Deletion response (may be null for successful deletions)
+     */
+    public function deleteNetworkInterface(
+        string $subscriptionId,
+        string $resourceGroup,
+        string $nicName
+    ): ?array {
+        return $this->client->request(
+            'DELETE',
             "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Network/networkInterfaces/{$nicName}"
         );
     }

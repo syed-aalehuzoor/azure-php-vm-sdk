@@ -47,7 +47,7 @@ class VmClient
         return $this->client->request('POST', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}/powerOff", []);
     }
 
-    public function deleteVm(string $subscriptionId, string $resourceGroup, string $vmName): array
+    public function deleteVm(string $subscriptionId, string $resourceGroup, string $vmName): ?array
     {
         return $this->client->request('DELETE', "/subscriptions/{$subscriptionId}/resourceGroups/{$resourceGroup}/providers/Microsoft.Compute/virtualMachines/{$vmName}", []);
     }
